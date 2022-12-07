@@ -1,6 +1,8 @@
 import pandas as pd 
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+import datetime
+
 
 
 
@@ -37,7 +39,7 @@ class Phase:
 #OPENING THE INPUT FILE IN READ MODE
 f = open('new.asc', 'r')
 
-opf = "C:/Users/uiv06493/OneDrive - Vitesco Technologies/Desktop/char/list.csv"   #FILE LOCATION
+   #FILE LOCATION
 
 df = pd.DataFrame()
 data = []
@@ -66,8 +68,6 @@ print("Total number of days charging station used : " ,len(df.Date.unique()))
 
 
 
-print(df)
-
 
 fDate = []
 for i in df["Date"]:
@@ -83,26 +83,6 @@ df["Date"] = fDate
 
 df["dayofweek"] = df["Date"].dt.day_name()
 
-print(df)
-
-
-
-# EM1_L1_list = df['EM1_L1'].tolist()
-# EM1_L2_list = df['EM1_L2'].tolist()
-# EM1_L3_list = df['EM1_L3'].tolist()
-
-
-# EM3_L1_list = df['EM3_L1'].tolist()
-# EM3_L2_list = df['EM3_L2'].tolist()
-# EM3_L3_list = df['EM3_L3'].tolist()
-
-# EM4_L1_list = df['EM4_L1'].tolist()
-# EM4_L2_list = df['EM4_L2'].tolist()
-# EM4_L3_list = df['EM4_L3'].tolist()
-
-
-
-
 phase_list = ["EM1_L1", "EM1_L2", "EM1_L3", "EM3_L1", "EM3_L2", "EM3_L3", "EM4_L1", "EM4_L2", "EM4_L3" ]
 
 
@@ -114,37 +94,96 @@ for i in phase_list:
 
 
 
+tmp_df = []
+Energy = 0
+Imax = 0
 
 
+def find_dur(StartTime, EndTime):
+        H1 = int(StartTime[:2])
+        M1 = int(StartTime[3:5])
+        S1 = int(StartTime[6:8])
 
-NDF = pd.DataFrame()
+        T1 = (H1*60*60) + (M1 * 60) + S1
+
+        H2 = int(EndTime[:2])
+        M2 = int(EndTime[3:5])
+        S2 = int(EndTime[6:8])
+
+        T2 = (H2*60*60) + (M2 * 60) + S2
+
+        Duration = str(datetime.timedelta(seconds=T2-T1))
+
+        return Duration, (T2 - T1)
+	
+
+
 
 for n in phase_objs:
 
-	tmp_df = pd.DataFrame()
-	Energy = 0
 	Ts = 300
 	Voltage = 220
 	CurrentList = n.CurrentList
+
+
+
 	for i in range(len(CurrentList)):
+
+
 		current = CurrentList[i]
-		current  = int(current.replace(',', ''))
+		current  = int(current.replace(',', ''))/10
 		if current != 0:
 			if Energy == 0:
+				# print("Init ", CurrentList[i])
 				start_time = df.at[i+1,"Time"]
 				Date = df.at[i+1,"Date"]
+				Day = df.at[i+1,"dayofweek"]
 			Energy = Energy + (Ts * Voltage * current )
-		elif Energy > 0:
+			if Imax < current:
+				Imax = current
+			# print("current", CurrentList[i])
+
+		if i == (len(CurrentList)-1) and current != 0:
+			# print("List end ", CurrentList[i])
 			end_time = df.loc[i+1,"Time"]
-			tmp_df = pd.DataFrame([n.name, start_time, end_time, Energy, Date])
-			print(tmp_df)
-			pd.concat([NDF, tmp_df])
+			Duration_str,Duration_Sec  = find_dur(start_time, end_time)
+			tmp_df.append([n.name, start_time, end_time ,Date, Energy, Imax, Duration_str, Duration_Sec])
 			Energy = 0
+			Imax = 0
+	
+
+		if current == 0 and Energy > 0:
+			# print("session end ", CurrentList[i])
+			end_time = df.loc[i+1,"Time"]
+			Duration_str,Duration_Sec  = find_dur(start_time, end_time)
+			tmp_df.append([n.name, start_time, end_time,Date,Day, Energy, Imax, Duration_str, Duration_Sec])
+			Energy = 0
+			Imax = 0
 
 
 
 
-print(NDF)
+
+
+NDF  = pd.DataFrame(tmp_df, columns = ["Name", "Start Time", "End Time", "Date","Day","Energy", "Imax", "Duration_str", "Duration_Sec"])
+
+
+NDF['Energy'] = NDF['Energy'].div(1000).round(2)
+
+NDF_sorted_Date = NDF.sort_values(['Date', "Start Time"], ascending=[True,  True])
+NDF_sorted_Energy = NDF.sort_values(by='Energy', ascending=True)
+
+
+
+
+
+
+
+# NDF_sorted_Date["Duration"] = NDF_sorted_Date["End Time"] - NDF_sorted_Date["Start Time"]
+
+print(NDF_sorted_Date)
+NDF_sorted_Date.to_csv("data_new.csv")
+
 
 
 #UNSUPERVISED LEARNING 
