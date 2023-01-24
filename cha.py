@@ -122,7 +122,7 @@ def find_dur(StartTime, EndTime):
 for n in phase_objs:
 
 	Ts = 300
-	Voltage = 220
+	Voltage = 230
 	CurrentList = n.CurrentList
 
 
@@ -209,7 +209,10 @@ NDF_sorted_Date.to_csv("data_new.csv")
 
 
 
+# PHP database extract
+#extract data from database and script to convert into plot
 
+#graph for individual session with three currents and energy in Kwh
 
 
 
